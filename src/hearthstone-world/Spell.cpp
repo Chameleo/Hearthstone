@@ -360,7 +360,7 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
                 {
                     //trap, check not to attack owner and friendly
                     if(isAttackable(g_caster->m_summoner,TO_UNIT(*itr),!(m_spellInfo->c_is_flags & SPELL_FLAG_IS_TARGETINGSTEALTHED)))
-                        _AddTargetForced((*itr)->GetGUID(), i);
+                        _AddTarget((TO_UNIT(*itr)), i);
                 }
                 else
                     _AddTargetForced((*itr)->GetGUID(), i);
@@ -417,7 +417,7 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
 				{
 					//trap, check not to attack owner and friendly
 					if( isAttackable( g_caster->m_summoner, TO_UNIT(*itr), !(m_spellInfo->c_is_flags & SPELL_FLAG_IS_TARGETINGSTEALTHED) ) )
-						_AddTargetForced((*itr)->GetGUID(), i);
+						_AddTarget((TO_UNIT(*itr)), i);
 				}
 				else
 					_AddTargetForced((*itr)->GetGUID(), i);
@@ -506,7 +506,7 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
 		}	
 		if(IsInrange(srcx,srcy,srcz,(*itr),r))
 		{
-			if( u_caster != NULL )
+			if( u_caster != NULL || (g_caster && g_caster->GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) == GAMEOBJECT_TYPE_TRAP) )
 			{
 				if(isAttackable(u_caster, TO_UNIT(*itr),!(m_spellInfo->c_is_flags & SPELL_FLAG_IS_TARGETINGSTEALTHED)) && _DidHit(TO_UNIT(*itr))==SPELL_DID_HIT_SUCCESS)
 					return (*itr)->GetGUID(); 			
@@ -613,7 +613,7 @@ uint8 Spell::_DidHit(const UnitPointer target)
 	/*************************************************************************/
 	/* Check if the target is immune to this mechanic                        */
 	/*************************************************************************/
-	if(u_victim->MechanicsDispels[Spell::GetMechanic(m_spellInfo)])
+	if(u_victim->MechanicsDispels[m_spellInfo->MechanicsType])
 	{
 		return SPELL_DID_HIT_IMMUNE; // Moved here from Spell::CanCast
 	}
@@ -2854,7 +2854,9 @@ void Spell::HandleAddAura(uint64 guid)
 		p_caster->HasDummyAura(SPELL_HASH_KING_OF_THE_JUNGLE) )
 	{
 		SpellEntry *spellInfo = dbcSpell.LookupEntry( 51185 );
-		if(!spellInfo) return;
+		if(!spellInfo) 
+			return;
+
 		SpellPointer spell(new Spell(p_caster, spellInfo ,true, NULLAURA));
 		spell->forced_basepoints[0] = p_caster->GetDummyAura(SPELL_HASH_KING_OF_THE_JUNGLE)->RankNumber * 5;
 		SpellCastTargets targets(p_caster->GetGUID());
@@ -2871,7 +2873,7 @@ void Spell::HandleAddAura(uint64 guid)
 		}break;
 	}
 
-	if(spellid && Target)
+	if( spellid && Target )
 	{
 		SpellEntry *spellInfo = dbcSpell.LookupEntry( spellid );
 		if(!spellInfo)
@@ -3092,7 +3094,7 @@ uint8 Spell::CanCast(bool tolerate)
 
 		// check for cooldowns
 		if(!tolerate && !p_caster->Cooldown_CanCast(m_spellInfo))
-				return SPELL_FAILED_NOT_READY;
+			return SPELL_FAILED_NOT_READY;
 
 		if(p_caster->GetDuelState() == DUEL_STATE_REQUESTED)
 		{
@@ -3406,7 +3408,7 @@ uint8 Spell::CanCast(bool tolerate)
 		// aurastate check
 		if( m_spellInfo->CasterAuraState)
 		{
-			if( !p_caster->HasFlag( UNIT_FIELD_AURASTATE, 1<<(m_spellInfo->CasterAuraState-1) ) )
+			if( !p_caster->HasFlag( UNIT_FIELD_AURASTATE, 1 << (m_spellInfo->CasterAuraState-1) ) )
 				return SPELL_FAILED_CASTER_AURASTATE;
 		}
 	}
@@ -3604,15 +3606,6 @@ uint8 Spell::CanCast(bool tolerate)
 		{
 			if( target != m_caster )
 			{
-				if( m_spellInfo->forced_creature_target )
-				{
-					if( !target->IsCreature() )
-						return SPELL_FAILED_BAD_TARGETS;
-
-					if( TO_CREATURE( target )->GetCreatureInfo() != NULL )
-						if( m_spellInfo->forced_creature_target != TO_CREATURE( target )->GetCreatureInfo()->Id )
-							return SPELL_FAILED_BAD_TARGETS;
-				}
 				// Partha: +2.52yds to max range, this matches the range the client is calculating.
 				// see extra/supalosa_range_research.txt for more info
 
@@ -3632,6 +3625,16 @@ uint8 Spell::CanCast(bool tolerate)
 
 			if( p_caster != NULL )
 			{
+				if( m_spellInfo->forced_creature_target )
+				{
+					if( !unitTarget->IsCreature() )
+						return SPELL_FAILED_BAD_TARGETS;
+
+					if( TO_CREATURE( unitTarget )->GetCreatureInfo() != NULL )
+						if( m_spellInfo->forced_creature_target != TO_CREATURE( unitTarget )->GetCreatureInfo()->Id )
+							return SPELL_FAILED_BAD_TARGETS;
+				}
+
 				if( m_spellInfo->Id == SPELL_RANGED_THROW)
 				{
 					ItemPointer itm = p_caster->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
@@ -3913,9 +3916,7 @@ uint8 Spell::CanCast(bool tolerate)
 		if( u_caster->SchoolCastPrevent[m_spellInfo->School] )
 		{	
 			uint32 now_ = getMSTime();
-			if( now_ > u_caster->SchoolCastPrevent[m_spellInfo->School] )//this limit has expired,remove
-				u_caster->SchoolCastPrevent[m_spellInfo->School] = 0;
-			else 
+			if( now_ < u_caster->SchoolCastPrevent[m_spellInfo->School] )
 				return SPELL_FAILED_SILENCED;
 		}
 
@@ -4284,15 +4285,12 @@ exit:*/
 	
 		if(comboDamage)
 		{
-			if( m_spellInfo->NameHash != SPELL_HASH_EVISCERATE ) //Eviscerate
-			{
-				value += ( comboDamage * p_caster->m_comboPoints );
-				m_requiresCP = true;
-				//this is ugly so i will explain the case maybe someone ha a better idea :
-				// while casting a spell talent will trigger uppon the spell prepare faze
-				// the effect of the talent is to add 1 combo point but when triggering spell finishes it will clear the extra combo point
-				p_caster->m_spellcomboPoints = 0;	
-			}
+			value += ( comboDamage * p_caster->m_comboPoints );
+			m_requiresCP = true;
+			//this is ugly so i will explain the case maybe someone ha a better idea :
+			// while casting a spell talent will trigger uppon the spell prepare faze
+			// the effect of the talent is to add 1 combo point but when triggering spell finishes it will clear the extra combo point
+			p_caster->m_spellcomboPoints = 0;	
 		}
 		SpellOverrideMap::iterator itr = p_caster->mSpellOverrideMap.find(m_spellInfo->Id);
 		if(itr != p_caster->mSpellOverrideMap.end())
@@ -4552,6 +4550,34 @@ void Spell::Heal(int32 amount)
 		{
 			if(unitTarget->HasActiveAura(29203))
 				amount += amount * 18 / 100;
+		}
+		else if( m_spellInfo->NameHash == SPELL_HASH_HOLY_LIGHT )
+		{
+			if( unitTarget->HasDummyAura(SPELL_HASH_GLYPH_OF_HOLY_LIGHT) )
+			{
+				uint32 GHL = float2int32(amount * 0.1f);
+				uint32 targetcnt = 0;
+				unordered_set<ObjectPointer >::iterator itr;
+				for( itr = unitTarget->GetInRangeSetBegin(); itr != unitTarget->GetInRangeSetEnd(); itr++ )
+				{
+					if( !(*itr)->IsUnit() || !TO_UNIT(*itr)->isAlive() || isAttackable(u_caster, (*itr), true) )
+						continue;
+
+					if( targetcnt > 4 )
+						break;
+
+					if(unitTarget->GetDistanceSq((*itr)) <= 64.0f)
+					{
+						SpellEntry* HLH = dbcSpell.LookupEntryForced( 54968 );
+						SpellPointer pSpell(new Spell(u_caster, HLH, true, NULLAURA));
+						pSpell->forced_basepoints[0] = GHL;
+						SpellCastTargets tgt;
+						tgt.m_unitTarget = (*itr)->GetGUID();
+						pSpell->prepare(&tgt);
+						targetcnt++;
+					}
+				}
+			}
 		}
 
 		if(m_spellInfo->spell_can_crit)
@@ -4817,7 +4843,24 @@ bool Spell::Reflect(UnitPointer refunit)
 			{
 				//the god blessed special case : mage - Frost Warding = is an augmentation to frost warding
 				if((*i)->require_aura_hash && u_caster && !u_caster->GetAuraSpellIDWithNameHash((*i)->require_aura_hash))
-                {
+				{
+					uint32 evilforce = 0;
+					for( ; evilforce < 3; evilforce++ )
+					{
+						if( m_spellInfo->Effect[evilforce] == SPELL_EFFECT_SCHOOL_DAMAGE )
+							break;
+					}
+
+					if( evilforce > 2 )
+						continue;
+
+					SpellEntry *spellInfo = dbcSpell.LookupEntry( 57776 );
+					SpellPointer spell(new Spell( refunit, spellInfo, true, NULLAURA));
+					uint32 manaregenamt = this->CalculateEffect(evilforce, refunit);
+					spell->forced_basepoints[0] = manaregenamt;
+					SpellCastTargets targets;
+					targets.m_unitTarget = refunit->GetGUID();
+					spell->prepare( &targets );
 					continue;
                 }
 				refspellid = (*i)->spellId;
@@ -5082,7 +5125,7 @@ void Spell::_AddTarget(const UnitPointer target, const uint32 effectid)
 	tgt.EffectMask = (1 << effectid);
 
 	// work out hit result (always true if we are a GO)
-	tgt.HitResult = (g_caster != NULL) ? SPELL_DID_HIT_SUCCESS : _DidHit(target);
+	tgt.HitResult = (g_caster || (g_caster && g_caster->GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) != GAMEOBJECT_TYPE_TRAP) ) ? SPELL_DID_HIT_SUCCESS : _DidHit(target);
 
 	// add to the list
 	m_targetList.push_back(tgt);

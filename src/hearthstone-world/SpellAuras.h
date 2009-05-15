@@ -31,7 +31,7 @@ enum AURA_STATE_FLAGS
     AURASTATE_FLAG_BERSERK              = 0x00000004,
     AURASTATE_FLAG_FROZEN               = 0x00000008,
     AURASTATE_FLAG_JUDGEMENT            = 0x00000010,
-	AURASTATE_FLAG_UNK1					= 0x00000020,
+	AURASTATE_FLAG_STUNNED				= 0x00000020, // CUSTOM!
     AURASTATE_FLAG_PARRY                = 0x00000040,
 	AURASTATE_FLAG_UNK2					= 0x00000080,
 	AURASTATE_FLAG_UNK3					= 0x00000100,
@@ -253,6 +253,7 @@ enum MOD_TYPES
     SPELL_AURA_INCREASE_RANGED_ATTACK_POWER_PCT_OF_INTELLECT = 212,
     SPELL_AURA_INCREASE_RAGE_FROM_DAMAGE_DEALT_PCT = 213,
     SPELL_AURA_INCREASE_CASTING_TIME_PCT = 216,
+	SPELL_AURA_HASTE_RANGED = 218,
     SPELL_AURA_REGEN_MANA_STAT_PCT=219,
     SPELL_AURA_HEALING_STAT_PCT=220,
 	SPELL_AURA_REDUCE_AOE_DAMAGE_TAKEN = 229,
@@ -673,7 +674,8 @@ public:
 	void SpellAuraAddCreatureImmunity(bool apply);
 	void SpellAuraRedirectThreat(bool apply);
 	void SpellAuraReduceAOEDamageTaken(bool apply);
-	
+	void SpellAuraHasteRanged(bool apply);
+
 	void UpdateAuraModDecreaseSpeed();
 
 	void SendModifierLog(int32 ** m,int32 v,uint32 *mask,uint8 type,bool pct = false);
@@ -741,6 +743,11 @@ public:
 	HEARTHSTONE_INLINE uint32 GetMechanic()
 	{
 		return Spell::GetMechanic(m_spellProto);
+	}
+
+	HEARTHSTONE_INLINE uint32 GetMechanicOfEffect(uint32 i)
+	{
+		return Spell::GetMechanicOfEffect(m_spellProto, i);
 	}
 
 	bool m_castInDuel;

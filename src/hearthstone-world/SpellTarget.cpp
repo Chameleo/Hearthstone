@@ -99,7 +99,7 @@ pSpellTarget SpellTargetHandler[TOTAL_SPELL_TARGET] =
 	&Spell::SpellTargetSummon,				  // 73
 	&Spell::SpellTargetNULL,					// 74
 	&Spell::SpellTargetNULL,					// 75
-	&Spell::SpellTargetNULL,					// 76
+	&Spell::SpellTargetAllTargetsInArea,		// 76
 	&Spell::SpellTargetSingleTargetEnemy,	   // 77
 	&Spell::SpellTargetNULL,					// 78
 	&Spell::SpellTargetNULL,					// 79
@@ -1024,5 +1024,14 @@ void Spell::SpellTargetAreaOfEffect87(uint32 i, uint32 j)
 		return;
 
 	_AddTargetForced(m_caster->GetGUID(), i);
-	FillAllTargetsInArea(i,m_targets.m_destX,m_targets.m_destY,m_targets.m_destZ,GetRadius(i));
+	FillAllTargetsInArea(i, m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, GetRadius(i));
+}
+
+/// Spell Target Handling for type 76 All targets in area
+void Spell::SpellTargetAllTargetsInArea(uint32 i, uint32 j)
+{
+	if( !m_caster || !m_caster->IsInWorld() )
+		return;
+
+	FillAllTargetsInArea(i, m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, GetRadius(i));
 }

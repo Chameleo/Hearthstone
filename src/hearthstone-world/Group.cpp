@@ -1008,7 +1008,6 @@ void Group::UpdateOutOfRangePlayer(PlayerPointer pPlayer, uint32 Flags, bool Dis
 
 void Group::UpdateAllOutOfRangePlayersFor(PlayerPointer pPlayer)
 {
-	return;
 	WorldPacket data(150);
 	WorldPacket data2(150);
 

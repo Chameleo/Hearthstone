@@ -1892,6 +1892,7 @@ public:
     void SpellTargetSameGroupSameClass(uint32 i, uint32 j);
 	void SpellTargetPositionOfTarget(uint32 i, uint32 j);
 	void SpellTargetAreaOfEffect87(uint32 i, uint32 j);
+	void SpellTargetAllTargetsInArea(uint32 i, uint32 j);
 
 	uint64 static FindLowestHealthRaidMember(PlayerPointer Target, uint32 dist);
 
@@ -2037,16 +2038,28 @@ public:
 			(uint32)sp->EffectMechanic[1] == MechanicsType ||
 			(uint32)sp->EffectMechanic[2] == MechanicsType;
 	}
+
 	HEARTHSTONE_INLINE static uint32 GetMechanic(SpellEntry * sp)
 	{
+		if(sp->MechanicsType)
+			return sp->MechanicsType;
 		if(sp->EffectMechanic[2])
 			return sp->EffectMechanic[2];
 		if(sp->EffectMechanic[1])
 			return sp->EffectMechanic[1];
 		if(sp->EffectMechanic[0])
 			return sp->EffectMechanic[0];
+
+		return 0;
+	}
+
+	HEARTHSTONE_INLINE static uint32 GetMechanicOfEffect(SpellEntry * sp, uint32 i)
+	{
+		if(sp->EffectMechanic[i])
+			return sp->EffectMechanic[i];
 		if(sp->MechanicsType)
 			return sp->MechanicsType;
+
 		return 0;
 	}
 

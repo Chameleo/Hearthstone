@@ -1345,7 +1345,7 @@ void WorldSession::HandleGameObjectUse(WorldPacket & recv_data)
 					/* expire the GameObjectPointer */
 					obj->ExpireAndDelete();
 				}
-				else if(goinfo->ID == 186811) // ritual of refreshment
+				else if( goinfo->ID == 186811 || goinfo->ID == 193062 ) // ritual of refreshment
 				{
 					PlayerPointer pleader = _player->GetMapMgr()->GetPlayer(obj->m_ritualcaster);
 					if(!pleader)
@@ -1355,6 +1355,9 @@ void WorldSession::HandleGameObjectUse(WorldPacket & recv_data)
 					SpellPointer spell(new Spell(pleader, info, true, NULLAURA));
 					SpellCastTargets targets(pleader->GetGUID());
 					spell->prepare(&targets);
+
+					obj->ExpireAndDelete();
+					pleader->InterruptCurrentSpell();
 				}
 				else if( goinfo->ID == 181622 || goinfo->ID == 193168 ) // ritual of souls
 				{
@@ -1399,6 +1402,11 @@ void WorldSession::HandleGameObjectUse(WorldPacket & recv_data)
 			GameObjectPointer pGo = _player->GetMapMgr()->CreateGameObject(179944);
 			if( pGo == NULL || !pGo->CreateFromProto(179944, _player->GetMapId(), _player->GetPositionX(), _player->GetPositionY(), _player->GetPositionZ(), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f))
 				return;
+
+			// dont allow to spam them
+			GameObjectPointer gobj = _player->GetMapMgr()->GetInterface()->GetGameObjectNearestCoords(_player->GetPositionX(), _player->GetPositionY(), _player->GetPositionZ(), 179944);
+			if( gobj )
+				gobj->ExpireAndDelete();
 
 			pGo->m_ritualcaster = _player->GetLowGUID();
 			pGo->m_ritualtarget = pPlayer->GetLowGUID();

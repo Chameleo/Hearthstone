@@ -651,7 +651,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
 		}
 	}	
 
-	if(  !(movement_info.flags & MOVEFLAG_MOVING_MASK) )
+	if(  !(movement_info.flags & MOVEFLAG_MOTION_MASK) )
 	{
 		if( _player->m_isMoving )
 		{

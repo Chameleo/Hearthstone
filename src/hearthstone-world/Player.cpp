@@ -5288,10 +5288,10 @@ bool Player::CanSee(ObjectPointer obj) // * Invisibility & Stealth Detection - P
 					}
 					
 					// 2d distance SQUARED!
-					float base_range = 64.0f;
+					float base_range = 49.0f;
 					float modDistance = 0.0f;
 
-					int32 hide_level = (getLevel() * 5 + GetStealthDetectBonus()) - pObj->getLevel() * 5 + GetStealthLevel();
+					int32 hide_level = (getLevel() * 5 + GetStealthDetectBonus()) - pObj->GetStealthLevel();
 					modDistance += hide_level * 0.2f;
 
 					if(pObj->isInBack(plr_shared_from_this()))
@@ -5841,10 +5841,15 @@ int32 Player::CanShootRangedWeapon( uint32 spellid, UnitPointer target, bool aut
 {
 	uint8 fail = 0;
 
-	SpellEntry* spellinfo = dbcSpell.LookupEntry( spellid );
+	SpellEntry* spellinfo = NULL;
+	if( autoshot )
+		spellinfo = dbcSpell.LookupEntry( 75 );
+	else
+		spellinfo = dbcSpell.LookupEntry( spellid );
 
 	if( spellinfo == NULL )
 		return -1;
+
 	//sLog.outString( "Canshootwithrangedweapon!?!? spell: [%u] %s" , spellinfo->Id , spellinfo->Name );
 
 	// Check ammo
@@ -5867,7 +5872,7 @@ int32 Player::CanShootRangedWeapon( uint32 spellid, UnitPointer target, bool aut
 
 	// Supalosa - The hunter ability Auto Shot is using Shoot range, which is 5 yards shorter.
 	// So we'll use 114, which is the correct 35 yard range used by the other Hunter abilities (arcane shot, concussive shot...)
-	uint32 rIndex = autoshot ? 114 : spellinfo->rangeIndex;
+	uint32 rIndex = spellinfo->rangeIndex;
 	SpellRange* range = dbcSpellRange.LookupEntry( rIndex );
 	float minrange = GetMinRange( range );
 	float dist = GetDistance2dSq( target ) - target->GetSize() - GetSize();
@@ -5887,6 +5892,7 @@ int32 Player::CanShootRangedWeapon( uint32 spellid, UnitPointer target, bool aut
 #endif
 	}
 
+	maxr += 4.0f; // Matches client range
 	maxr *= maxr; // square me!
 	minrange *= minrange;
 
@@ -5927,13 +5933,13 @@ int32 Player::CanShootRangedWeapon( uint32 spellid, UnitPointer target, bool aut
 	{
 		//SendCastResult( autoshot ? 75 : spellid, fail, 0, 0 );
 		packetSMSG_CASTRESULT cr;
-		cr.SpellId = autoshot ? 75 : spellid;
+		cr.SpellId = spellinfo->Id;
 		cr.ErrorMessage = fail;
 		cr.MultiCast = 0;
 		m_session->OutPacket( SMSG_CAST_FAILED, sizeof(packetSMSG_CASTRESULT), &cr );
 		if( fail != SPELL_FAILED_OUT_OF_RANGE )
 		{
-			uint32 spellid2 = autoshot ? 75 : spellid;
+			uint32 spellid2 = spellinfo->Id;
 			m_session->OutPacket( SMSG_CANCEL_AUTO_REPEAT, 4, &spellid2 );
 		}
 		//sLog.outString( "Result for CanShootWIthRangedWeapon: %u" , fail );
@@ -6224,10 +6230,21 @@ void Player::Reset_Spells()
 	ASSERT(info);
 
 	std::list<uint32> spelllist;
+	bool profession = false;
 	
 	for(SpellSet::iterator itr = mSpells.begin(); itr!=mSpells.end(); itr++)
 	{
-		spelllist.push_back((*itr));
+		SpellEntry *sp = dbcSpell.LookupEntry((*itr));
+		for( uint32 lp = 0; lp < 3; lp++ )
+		{
+			if( sp->Effect[lp] == SPELL_EFFECT_SKILL )
+				profession = true;
+		}
+
+		if( !profession )
+			spelllist.push_back((*itr));
+			
+		profession = false;
 	}
 
 	for(std::list<uint32>::iterator itr = spelllist.begin(); itr!=spelllist.end(); itr++)
@@ -6241,6 +6258,22 @@ void Player::Reset_Spells()
 		{
 			addSpell(*sp);
 		}
+	}
+
+	profession = false;
+	for(std::set<uint32>::iterator itr = mDeletedSpells.begin(); itr != mDeletedSpells.end(); itr++)
+	{
+		SpellEntry *sp = dbcSpell.LookupEntry((*itr));
+		for( uint32 lp = 0; lp < 3; lp++ )
+		{
+			if( sp->Effect[lp] == SPELL_EFFECT_SKILL )
+				profession = true;
+		}
+
+		if( !profession )
+			mDeletedSpells.erase((*itr));
+		
+		profession = false;
 	}
 }
 
@@ -11296,7 +11329,7 @@ void Player::VampiricSpell(uint32 dmg, UnitPointer pTarget, SpellEntry *spellinf
 
 						SpellEntry* Replinishment = dbcSpell.LookupEntryForced( 57669 );
 						SpellPointer pSpell(new Spell(plr_shared_from_this(), Replinishment, true, NULLAURA));
-						pSpell->forced_basepoints[0] = float2int32(p_target->GetUInt32Value(UNIT_FIELD_MAXPOWER1) * 0.0025f);
+						pSpell->forced_basepoints[0] = float2int32(p_target->GetUInt32Value(UNIT_FIELD_BASE_MANA) * 0.0025f);
 						SpellCastTargets tgt;
 						tgt.m_unitTarget = p_target->GetGUID();
 						pSpell->prepare(&tgt);
@@ -11310,7 +11343,7 @@ void Player::VampiricSpell(uint32 dmg, UnitPointer pTarget, SpellEntry *spellinf
 		{
 			SpellEntry* Replinishment = dbcSpell.LookupEntryForced( 57669 );
 			SpellPointer pSpell(new Spell(plr_shared_from_this(), Replinishment, true, NULLAURA));
-			pSpell->forced_basepoints[0] = float2int32(GetUInt32Value(UNIT_FIELD_MAXPOWER1) * 0.0025f);
+			pSpell->forced_basepoints[0] = float2int32(GetUInt32Value(UNIT_FIELD_BASE_MANA) * 0.0025f);
 			SpellCastTargets tgt;
 			tgt.m_unitTarget = GetGUID();
 			pSpell->prepare(&tgt);

@@ -810,8 +810,8 @@ public:
 	bool IsDazed();
 	float CalculateDazeCastChance(UnitPointer target);
 
-	// Stealth  
-	HEARTHSTONE_INLINE int32 GetStealthLevel() { return m_stealthLevel; }
+	// Stealth
+	HEARTHSTONE_INLINE int32 GetStealthLevel() { return (m_stealthLevel + ((getLevel()%20) * 5)); }
 	HEARTHSTONE_INLINE int32 GetStealthDetectBonus() { return m_stealthDetectBonus; }
 	HEARTHSTONE_INLINE void SetStealth(uint32 id) { m_stealth = id; }
 	HEARTHSTONE_INLINE bool InStealth() { return (m_stealth!=0 ? true : false); }

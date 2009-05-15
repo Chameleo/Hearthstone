@@ -181,7 +181,7 @@ WorldPacket * Mailbox::MailboxListingPacket()
 		if(AddMessageToListingPacket(*data, &itr->second))
 			++count;
 	
-		if(count == 30)
+		if(count == 25)
 			break;
 	}
 

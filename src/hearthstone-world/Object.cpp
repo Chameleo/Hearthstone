@@ -1257,13 +1257,38 @@ void Object::SetFlag( const uint32 index, uint32 newFlag )
 	if( index == UNIT_FIELD_AURASTATE )
 	{
 		UnitPointer u = unit_shared_from_this();
-		for(uint32 i = 0; i < MAX_AURAS+MAX_POSITIVE_AURAS; ++i)
+		if( newFlag == AURASTATE_FLAG_STUNNED && u->IsPlayer() && u->HasDummyAura(SPELL_HASH_PRIMAL_TENACITY) && TO_PLAYER(u)->GetShapeShift() == FORM_CAT )
 		{
-			if( u->m_auras[i] && !u->m_auras[i]->m_applied) // try to apply
-				u->m_auras[i]->ApplyModifiers(true);
+			for(uint32 i = 0; i < MAX_AURAS+MAX_POSITIVE_AURAS; ++i)
+			{
+				if( u->m_auras[i] && u->m_auras[i]->GetSpellProto()->NameHash == SPELL_HASH_PRIMAL_TENACITY )
+				{
+					AuraPointer aura(new Aura(u->m_auras[i]->GetSpellProto(), -1, object_shared_from_this(), unit_shared_from_this()));
+					u->m_auras[i]->Remove();
+					aura->AddMod(232, -31, 5, 0);
+					aura->AddMod(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, -31, 127, 1);
+					aura->AddMod(SPELL_AURA_DUMMY, 0, 0, 2);
+					u->AddAura(aura);
+					continue;
+				}
 
-			if( u->m_auras[i] && u->m_auras[i]->m_applied) // try to remove, if we lack the aurastate
-				u->m_auras[i]->RemoveIfNecessary();
+				if( u->m_auras[i] && !u->m_auras[i]->m_applied) // try to apply
+					u->m_auras[i]->ApplyModifiers(true);
+
+				if( u->m_auras[i] && u->m_auras[i]->m_applied) // try to remove, if we lack the aurastate
+					u->m_auras[i]->RemoveIfNecessary();
+			}
+		}
+		else
+		{
+			for(uint32 i = 0; i < MAX_AURAS+MAX_POSITIVE_AURAS; ++i)
+			{
+				if( u->m_auras[i] && !u->m_auras[i]->m_applied) // try to apply
+					u->m_auras[i]->ApplyModifiers(true);
+
+				if( u->m_auras[i] && u->m_auras[i]->m_applied) // try to remove, if we lack the aurastate
+					u->m_auras[i]->RemoveIfNecessary();
+			}
 		}
 	}
 }
@@ -1294,13 +1319,38 @@ void Object::RemoveFlag( const uint32 index, uint32 oldFlag )
 	if( index == UNIT_FIELD_AURASTATE )
 	{
 		UnitPointer u = unit_shared_from_this();
-		for(uint32 i = 0; i < MAX_AURAS+MAX_POSITIVE_AURAS; ++i)
+		if( oldFlag == AURASTATE_FLAG_STUNNED && u->IsPlayer() && u->HasDummyAura(SPELL_HASH_PRIMAL_TENACITY) && TO_PLAYER(u)->GetShapeShift() == FORM_CAT )
 		{
-			if( u->m_auras[i] && !u->m_auras[i]->m_applied) // try to apply
-				u->m_auras[i]->ApplyModifiers(true);
+			for(uint32 i = 0; i < MAX_AURAS+MAX_POSITIVE_AURAS; ++i)
+			{
+				if( u->m_auras[i] && u->m_auras[i]->GetSpellProto()->NameHash == SPELL_HASH_PRIMAL_TENACITY )
+				{
+					AuraPointer aura(new Aura(u->m_auras[i]->GetSpellProto(), -1, object_shared_from_this(), unit_shared_from_this()));
+					u->m_auras[i]->Remove();
+					aura->AddMod(232, -31, 5, 0);
+					aura->AddMod(SPELL_AURA_DUMMY, 0, 0, 2);
+					aura->AddMod(SPELL_AURA_ADD_PCT_MODIFIER, -51, 14, 2);
+					u->AddAura(aura);
+					continue;
+				}
 
-			if( u->m_auras[i] && u->m_auras[i]->m_applied) // try to remove, if we lack the aurastate
-				u->m_auras[i]->RemoveIfNecessary();
+				if( u->m_auras[i] && !u->m_auras[i]->m_applied) // try to apply
+					u->m_auras[i]->ApplyModifiers(true);
+
+				if( u->m_auras[i] && u->m_auras[i]->m_applied) // try to remove, if we lack the aurastate
+					u->m_auras[i]->RemoveIfNecessary();
+			}
+		}
+		else
+		{
+			for(uint32 i = 0; i < MAX_AURAS+MAX_POSITIVE_AURAS; ++i)
+			{
+				if( u->m_auras[i] && !u->m_auras[i]->m_applied) // try to apply
+					u->m_auras[i]->ApplyModifiers(true);
+
+				if( u->m_auras[i] && u->m_auras[i]->m_applied) // try to remove, if we lack the aurastate
+					u->m_auras[i]->RemoveIfNecessary();
+			}
 		}
 	}
 }
@@ -1598,9 +1648,9 @@ void Object::DealDamage(UnitPointer pVictim, uint32 damage, uint32 targetEvent, 
 		//zack 2007 04 24 : root should not remove self (and also other unknown spells)
 		if(spellId)
 		{
-			pVictim->RemoveAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_ANY_DAMAGE_TAKEN,spellId);
+			pVictim->RemoveAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_ANY_DAMAGE_TAKEN, spellId);
 			if(Rand(breakchance))
-				pVictim->RemoveAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_UNUSED2,spellId);
+				pVictim->RemoveAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_UNUSED2, spellId);
 		}
 		else
 		{
@@ -1694,13 +1744,6 @@ void Object::DealDamage(UnitPointer pVictim, uint32 damage, uint32 targetEvent, 
 			plr->m_bgScore.DamageDone += damage;
 			plr->m_bg->UpdatePvPData();
 		}
-	}
-
-	// Nerves of Steel very very ugly!!! need proper fix
-	if( pVictim->HasDummyAura(SPELL_HASH_NERVES_OF_STEEL) )
-	{
-		if( pVictim->IsStunned() || pVictim->m_fearmodifiers )
-			damage *= 0.7f;
 	}
    
 	uint32 health = pVictim->GetUInt32Value(UNIT_FIELD_HEALTH );
@@ -1963,15 +2006,17 @@ void Object::DealDamage(UnitPointer pVictim, uint32 damage, uint32 targetEvent, 
 		}
 		if( pVictim->IsPlayer() )
 		{
-			if( TO_PLAYER( pVictim)->HasSpell( 20711 ) ) //check for spirit of Redemption
+			if( TO_PLAYER( pVictim)->HasDummyAura(SPELL_HASH_SPIRIT_OF_REDEMPTION) ) //check for spirit of Redemption
 			{
 				SpellEntry* sorInfo = dbcSpell.LookupEntry(27827);
 				if( sorInfo != NULL )
 				{
+					pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 1);
 					SpellPointer sor(new Spell( pVictim, sorInfo, true, NULLAURA ));
 					SpellCastTargets targets;
 					targets.m_unitTarget = pVictim->GetGUID();
 					sor->prepare(&targets);
+					return;
 				}
 			}
 		}
@@ -2222,22 +2267,6 @@ void Object::DealDamage(UnitPointer pVictim, uint32 damage, uint32 targetEvent, 
 						sp->prepare(&targets);
 					}
 				}
-				else if( spentry->NameHash == SPELL_HASH_DIVINE_STORM || spentry->NameHash == SPELL_HASH_CRUSADER_STRIKE || spentry->buffType == SPELL_TYPE_JUDGEMENT )
-				{
-					if( plra->HasDummyAura(SPELL_HASH_RIGHTEOUS_VENGEANCE) )
-					{
-						uint32 amt = float2int32( damage * ( (plra->GetDummyAura(SPELL_HASH_RIGHTEOUS_VENGEANCE)->EffectBasePoints[0]+1 ) / 400.0f ));
-						if( amt )
-						{
-							SpellEntry* spellInfo = dbcSpell.LookupEntryForced( 61840 );
-							SpellPointer sp(new Spell( pVictim, spellInfo, true, NULLAURA ));
-							sp->forced_basepoints[0] = amt;
-							SpellCastTargets tgt;
-							tgt.m_unitTarget = pVictim->GetGUID();
-							sp->prepare(&tgt);
-						}
-					}
-				}
 			}	
 		}
 		// TODO: Mark victim as a HK
@@ -2391,8 +2420,7 @@ void Object::SpellNonMeleeDamageLog(UnitPointer pVictim, uint32 spellID, uint32 
 							dmg_reduction_pct = 0.33f; // 3.0.3
 
 						res = res - res * dmg_reduction_pct;
-					}
-					
+					}			
 				}
 
 				pVictim->Emote( EMOTE_ONESHOT_WOUNDCRITICAL );
@@ -2536,8 +2564,8 @@ void Object::SpellNonMeleeDamageLog(UnitPointer pVictim, uint32 spellID, uint32 
 
 		if( pVictim->isAlive() && IsUnit() )
 		{
-			//Shadow Word:Death
-			if( spellID == 32379 || spellID == 32996 || spellID == 48157 || spellID == 48158) 
+			//Shadow Word: Death
+			if( spellID == 32379 || spellID == 32996 || spellID == 48157 || spellID == 48158 ) 
 			{
 				uint32 damage = (uint32)( res + abs_dmg );
 				uint32 absorbed = unit_shared_from_this()->AbsorbDamage(shared_from_this(), school, &damage, dbcSpell.LookupEntryForced(spellID) );
