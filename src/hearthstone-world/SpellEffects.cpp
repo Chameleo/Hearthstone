@@ -5015,41 +5015,8 @@ void Spell::SpellEffectScriptEffect(uint32 i) // Script Effect
 		{
 			if(!p_caster)
 				return;
-			//copied from cannibalize, im so lazy ^^
-			bool check = false;
-			float rad = GetRadius(i);
-			rad *= rad;
-			ObjectPointer corpse = NULLOBJ;
-			for(Object::InRangeSet::iterator i = p_caster->GetInRangeSetBegin(); i != p_caster->GetInRangeSetEnd(); ++i)
-			{
-				if( (*i) && (*i)->IsCreature() )
-				{
-					if( TO_UNIT((*i))->getDeathState() == CORPSE)
-					{
-						corpse = (*i);
-						CreatureInfo *cn = TO_CREATURE( corpse )->GetCreatureName();
-						if(cn && (cn->Type == HUMANOID || cn->Type == UNDEAD))
-						{
-							if(p_caster->GetDistance2dSq( corpse ) < rad)
-							{
-								check = true;
-								break;
-							}
-						}
-					}
-				}
-			}
-			
-			if( corpse && check )
-			{
-				SpellPointer sp(new Spell(p_caster,dbcSpell.LookupEntry( 46585 ),true,NULLAURA));
-				SpellCastTargets targets;
-				targets.m_destX = corpse->GetPositionX();
-				targets.m_destY = corpse->GetPositionY();
-				targets.m_destZ = corpse->GetPositionZ();
-				targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
-				sp->prepare(&targets);		
-			}
+
+			p_caster->CastSpell(p_caster, 46585, true );
 		}break;
 	// Warlock Healthstones, just how much health does a lock need?
 	case 6201:		// Minor Healthstone

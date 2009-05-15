@@ -3326,7 +3326,7 @@ uint8 Spell::CanCast(bool tolerate)
 				return SPELL_FAILED_TARGET_IN_COMBAT;
 		}
 
-		if( p_caster && m_spellInfo->NameHash == SPELL_HASH_CANNIBALIZE )
+		if( p_caster && ( m_spellInfo->NameHash == SPELL_HASH_CANNIBALIZE || m_spellInfo->Id == 46584 ))
 		{
 			bool check = false;
 			for(Object::InRangeSet::iterator i = p_caster->GetInRangeSetBegin(); i != p_caster->GetInRangeSetEnd(); ++i)
@@ -3337,8 +3337,20 @@ uint8 Spell::CanCast(bool tolerate)
 							check = true;
 			}
 
+			if( !check && m_spellInfo->Id == 46584 )
+			{
+				if( p_caster->HasDummyAura( SPELL_HASH_GLYPH_OF_RAISE_DEAD ) )
+					check = true;
+				else if( p_caster->GetItemInterface()->GetItemCount( 37201 ) )
+				{
+					check = true;
+					p_caster->GetItemInterface()->RemoveItemAmt( 37201, 1 ); 
+				}
+			}
 			if( !check )
+			{
 				return SPELL_FAILED_NO_EDIBLE_CORPSES;
+			}
 		}
 
 		// check if we have the required gameobject focus
