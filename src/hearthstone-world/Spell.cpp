@@ -3639,11 +3639,11 @@ uint8 Spell::CanCast(bool tolerate)
 			{
 				if( m_spellInfo->forced_creature_target )
 				{
-					if( !unitTarget->IsCreature() )
+					if( !target->IsCreature() )
 						return SPELL_FAILED_BAD_TARGETS;
 
-					if( TO_CREATURE( unitTarget )->GetCreatureInfo() != NULL )
-						if( m_spellInfo->forced_creature_target != TO_CREATURE( unitTarget )->GetCreatureInfo()->Id )
+					if( TO_CREATURE( target )->GetCreatureInfo() != NULL )
+						if( m_spellInfo->forced_creature_target != TO_CREATURE( target )->GetCreatureInfo()->Id )
 							return SPELL_FAILED_BAD_TARGETS;
 				}
 

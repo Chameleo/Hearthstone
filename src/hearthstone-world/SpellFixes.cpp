@@ -4910,7 +4910,10 @@ void ApplySingleSpellFixes(SpellEntry *sp)
 					sp->DurationIndex = 1;
 					sp->RequiredShapeShift = 144;
 				}break;
-
+			case 60200:
+				{
+					sp->EffectApplyAuraName[0] = SPELL_AURA_DUMMY;
+				}break;
 			//////////////////////////////////////////
 			// BOSSES								//
 			//////////////////////////////////////////
