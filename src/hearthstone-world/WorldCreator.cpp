@@ -243,13 +243,13 @@ uint32 InstanceMgr::PreTeleport(uint32 mapid, PlayerPointer plr, uint32 instance
 					m_mapLock.Release();
 
 					// check the player count and in combat status.
-					if(in->m_mapMgr)
+					if(in->m_mapMgr && in->m_mapMgr->HasPlayers() && !plr->triggerpass_cheat)
 					{
-						if(in->m_mapMgr->IsCombatInProgress() && !plr->triggerpass_cheat )
+						if( in->m_mapMgr->IsCombatInProgress())
 							return INSTANCE_ABORT_ENCOUNTER;
 
 						// check if we are full
-						if( in->m_mapMgr->GetPlayerCount() >= inf->playerlimit && !plr->triggerpass_cheat )
+						if( in->m_mapMgr->GetPlayerCount() >= inf->playerlimit )
 							return INSTANCE_ABORT_FULL;
 
 					}
@@ -463,16 +463,7 @@ MapMgrPointer InstanceMgr::_CreateInstance(Instance * in)
 	ThreadPool.ExecuteTask(in->m_mapMgr.get());
 	return in->m_mapMgr;
 }
-bool InstanceMgr::HasActiveInstance(Instance * pInstance, uint32 guid)
-{
-	set<uint32>::iterator itr = pInstance->m_SavedPlayers.begin();
-	for(; itr != pInstance->m_SavedPlayers.end(); ++itr)
-	{
-		if ( *itr == guid )
-		return true;
-	}
-	return false;
-}
+
 Instance * InstanceMgr::GetSavedInstance(uint32 map_id, uint32 guid)
 {
 		InstanceMap::iterator itr;
@@ -486,7 +477,7 @@ Instance * InstanceMgr::GetSavedInstance(uint32 map_id, uint32 guid)
 			{
 				if(itr != instancemap->end())
 				{
-					if( InstanceMgr::HasActiveInstance(itr->second,guid))
+					if( itr->second->m_SavedPlayers.find(guid) != itr->second->m_SavedPlayers.end() )
 					{
 						m_mapLock.Release();
 						return itr->second;
@@ -738,7 +729,7 @@ void InstanceMgr::ResetSavedInstances(PlayerPointer plr)
 				{
 					if(in->m_mapMgr && in->m_mapMgr->HasPlayers())
 					{
-						plr->GetSession()->SystemMessage("Failed to reset instance %u (%s), due to players still inside.", in->m_instanceId, in->m_mapMgr->GetMapInfo()->name);
+						plr->GetSession()->SystemMessage("Can't reset instance %u (%s) when there are still players inside!", in->m_instanceId, in->m_mapMgr->GetMapInfo()->name);
 						continue;
 					}
 
@@ -794,17 +785,11 @@ bool InstanceMgr::_DeleteInstance(Instance * in, bool ForcePlayersOut)
 
 	if(in->m_mapMgr)
 	{
-		//Reset the saved group instance ID.
-		Group * pGroup = objmgr.GetGroupById( in->m_creatorGroup ); 
-		if(pGroup)
-			pGroup->SetGroupInstanceID(0);
 
 		// "ForcePlayersOut" will teleport the players in this instance to their entry point/hearthstone.
 		// otherwise, they will get a 60 second timeout telling them they are not in this instance's group.
 		if(in->m_mapMgr->HasPlayers())
 		{
-			if(GetFirstPlayer(in)->GetGroup())// only happens if GM is the first one in
-				GetFirstPlayer(in)->GetGroup()->SetGroupInstanceID(0);
 			if(ForcePlayersOut)
 				in->m_mapMgr->InstanceShutdown();
 			else
@@ -826,7 +811,7 @@ bool InstanceMgr::_DeleteInstance(Instance * in, bool ForcePlayersOut)
 		if(itr != instancemap->end())
 			instancemap->erase(itr);
 	}
-    
+
 	// cleanup corpses, database references
 	in->DeleteFromDB();
 
@@ -835,19 +820,6 @@ bool InstanceMgr::_DeleteInstance(Instance * in, bool ForcePlayersOut)
 	m_mapLock.Release();
 	
 	return true;
-}
-
-PlayerPointer InstanceMgr::GetFirstPlayer(Instance*pInstance)
-{
-	//Is there a player inside?
-	if(pInstance->m_mapMgr->m_PlayerStorage.size())
-	{
-		//then return the first player from the list
-		PlayerStorageMap::iterator itr;
-		itr = pInstance->m_mapMgr->m_PlayerStorage.begin();
-		return itr->second;
-	}
-	return NULLPLR;
 }
 
 void Instance::DeleteFromDB()
@@ -986,9 +958,18 @@ void Instance::SaveToDB()
 	if (m_killedNpcs.size()==0)
 		return;
 
+	// Add new players to existing m_SavedPlayers
+	PlayerStorageMap::iterator itr1 = m_mapMgr->m_PlayerStorage.begin();
+	set<uint32>::iterator itr2;
+	for(; itr1 != m_mapMgr->m_PlayerStorage.end(); itr1++)
+	{
+		itr2 = m_SavedPlayers.find(itr1->second->GetLowGUID());
+		if( itr2 == m_SavedPlayers.end() )
+			m_SavedPlayers.insert(itr1->second->GetLowGUID());
+	}
 
 	std::stringstream ss;
-	unordered_set<uint32>::iterator itr;
+	unordered_set<uint32>::iterator itr3;
 
 	ss << "REPLACE INTO instances VALUES("
 		<< m_instanceId << ","
@@ -996,18 +977,16 @@ void Instance::SaveToDB()
 		<< (uint32)m_creation << ","
 		<< (uint32)m_expiration << ",'";
 
-	for(itr = m_killedNpcs.begin(); itr != m_killedNpcs.end(); ++itr)
-		ss << (*itr) << " ";
+	for(itr3 = m_killedNpcs.begin(); itr3 != m_killedNpcs.end(); ++itr3)
+		ss << (*itr3) << " ";
 
 	ss	<< "',"
 		<< m_difficulty << ","
 		<< m_creatorGroup << ","
 		<< m_creatorGuid << ",'";
 
-	// Add all players in this instance to SavedPlayers
-	PlayerStorageMap::iterator itr1 = m_mapMgr->m_PlayerStorage.begin();
-	for(; itr1 != m_mapMgr->m_PlayerStorage.end(); itr1++)
-		ss << itr1->second->GetLowGUID() << " ";
+	for(itr2 = m_SavedPlayers.begin(); itr2 != m_SavedPlayers.end(); ++itr2)
+		ss << (*itr2) << " ";
 
 	ss <<"')";
 

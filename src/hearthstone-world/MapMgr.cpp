@@ -608,27 +608,19 @@ void MapMgr::RemoveObject(ObjectPointer obj, bool free_guid)
 	// Clear object's in-range set
 	obj->ClearInRangeSet();
 
-	// If it's a player - update his nearby cells
-	if(obj->GetTypeId() == TYPEID_PLAYER)
+	if(plObj)
 	{
-		// get x/y
-		if(obj->GetPositionX() >= _maxX || obj->GetPositionX() <= _minY ||
-			obj->GetPositionY() >= _maxY || obj->GetPositionY() <= _minY)
-		{
-			// do nothing
-		}
-		else
+		// If it's a player and he's inside boundaries - update his nearby cells
+		if(obj->GetPositionX() <= _maxX && obj->GetPositionX() >= _minX &&
+			obj->GetPositionY() <= _maxY && obj->GetPositionY() >= _minY)
 		{
 			uint32 x = GetPosX(obj->GetPositionX());
 			uint32 y = GetPosY(obj->GetPositionY());
 			UpdateCellActivity(x, y, 2);
 		}
 		m_PlayerStorage.erase( TO_PLAYER( obj )->GetLowGUID() );
-	}
 
-	// Remove the session from our set if it is a player.
-	if(plObj)
-	{
+		// Remove the session from our set if it is a player.
 		for(set<ObjectPointer >::iterator itr = _mapWideStaticObjects.begin(); itr != _mapWideStaticObjects.end(); ++itr)
 		{
 			plObj->PushOutOfRange((*itr)->GetNewGUID());
@@ -638,8 +630,7 @@ void MapMgr::RemoveObject(ObjectPointer obj, bool free_guid)
 		// by MapMgr::run(). :)
 		plObj->GetSession()->SetInstance(0);
 
-		// Add it to the global session set.
-		// Don't "re-add" to session if it is being deleted.
+		// Add it to the global session set (if it's not being deleted).
 		if(!plObj->GetSession()->bDeleted)
 			sWorld.AddGlobalSession(plObj->GetSession());
 	}
@@ -1614,6 +1605,9 @@ void MapMgr::BeginInstanceExpireCountdown()
 		ptr = __player_iterator->second;;
 		++__player_iterator;
 
+		if( ptr->GetGroup() && ptr->GetGroup()->GetGroupInstanceID())
+			ptr->GetGroup()->SetGroupInstanceID(0);
+
 		if(ptr->GetSession())
 		{
 			if(!ptr->raidgrouponlysent)
@@ -1693,13 +1687,10 @@ void MapMgr::_PerformObjectDuties()
 	if(difftime > 500)
 		difftime = 500;
 
-	// Update creatures.
-	__creature_iterator = activeCreatures.begin();
-	CreaturePointer ptr;
-	PetPointer ptr2;
-	VehiclePointer ptr3;
-	PlayerPointer ptr4;
+	// Update our objects.
 
+	CreaturePointer ptr;
+	__creature_iterator = activeCreatures.begin();
 	for(; __creature_iterator != activeCreatures.end();)
 	{
 		ptr = *__creature_iterator;
@@ -1708,6 +1699,7 @@ void MapMgr::_PerformObjectDuties()
 		ptr->Update(difftime);
 	}
 
+	PetPointer ptr2;
 	__pet_iterator = m_PetStorage.begin();
 	for(; __pet_iterator != m_PetStorage.end();)
 	{
@@ -1717,6 +1709,7 @@ void MapMgr::_PerformObjectDuties()
 		ptr2->Update(difftime);
 	}		
 
+	VehiclePointer ptr3;
 	__vehicle_iterator = activeVehicles.begin();
 	for(; __vehicle_iterator != activeVehicles.end();)
 	{
@@ -1730,6 +1723,7 @@ void MapMgr::_PerformObjectDuties()
 	eventHolder.Update(difftime);
 
 	// Update players.
+	PlayerPointer ptr4;
 	__player_iterator = m_PlayerStorage.begin();
 	for(; __player_iterator != m_PlayerStorage.end();)
 	{
@@ -1741,18 +1735,19 @@ void MapMgr::_PerformObjectDuties()
 
 	lastUnitUpdate = mstime;
 
-	// Update gameobjects (not on every loop, however)
+	// Update gameobjects (every 2nd tick only).
 	if( mLoopCounter % 2 )
 	{
 		difftime = mstime - lastGameobjectUpdate;
 
+		GameObjectPointer ptr5;
 		__gameobject_iterator = activeGameObjects.begin();
-		GameObjectPointer ptr;
 		for(; __gameobject_iterator != activeGameObjects.end(); )
 		{
-			ptr = *__gameobject_iterator;
+			ptr5 = *__gameobject_iterator;
 			++__gameobject_iterator;
-			ptr->Update( difftime );
+
+			ptr5->Update( difftime );
 		}
 
 		lastGameobjectUpdate = mstime;

@@ -268,13 +268,12 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
 								in = itr->second;
 								if( in->m_mapMgr && in->m_mapMgr->HasPlayers() ) //some instances are inside another
 								{
-									PlayerPointer firstplr = sInstanceMgr.GetFirstPlayer(in);
-									if( firstplr != NULL  && firstplr->GetGroup() == _player->GetGroup() )
+									if( _player->GetGroup()->GetID() == in->m_creatorGroup )
 									{
-										if (_player->GetGroup()->GetGroupInstanceID() != firstplr->GetGroup()->GetGroupInstanceID())
+										if (_player->GetGroup()->GetGroupInstanceID() != in->m_creatorGroup)
 										{
 											Log.Warning("InstanceMgr","Group inside instance %d didn't set the GroupInstanceID for map %d [%s], old_instanceID = %d",
-												in->m_instanceId, in->m_mapId, in->m_mapInfo->name, firstplr->GetGroup()->GetGroupInstanceID() );
+												in->m_instanceId, in->m_mapId, in->m_mapInfo->name, in->m_creatorGroup );
 											_player->GetGroup()->SetGroupInstanceID(in->m_instanceId);
 										}
 										InstanceID = in->m_instanceId;

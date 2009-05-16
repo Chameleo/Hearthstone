@@ -151,54 +151,66 @@ public:
 
 	// has an instance expired?
 	// can a player join?
+
 	HEARTHSTONE_INLINE uint8 PlayerOwnsInstance(Instance * pInstance, PlayerPointer pPlayer)
 	{
-		uint8 OwnsInstance = OWNER_CHECK_ERROR;
-
 		// expired?
 		if( HasInstanceExpired( pInstance) )
 		{
-			_DeleteInstance(pInstance, true);
-			OwnsInstance = OWNER_CHECK_EXPIRED;
-		}
-		else if( !pInstance->m_mapInfo )
-		{
-			OwnsInstance = OWNER_CHECK_NOT_EXIST;
-		}
-		else if( pPlayer->triggerpass_cheat )
-		{
-			OwnsInstance = OWNER_CHECK_TRIGGERPASS;
-		}
-		else if( !pPlayer->GetGroup() )
-		{
-			OwnsInstance = OWNER_CHECK_NO_GROUP;
+			_DeleteInstance(pInstance, false);
+			return OWNER_CHECK_EXPIRED;
 		}
 
-		else if( pInstance->m_difficulty == 1 && pPlayer->iInstanceType == MODE_NORMAL )
+		if( !pInstance->m_mapInfo )
+			return OWNER_CHECK_NOT_EXIST;
+
+		if( pPlayer->triggerpass_cheat )
+			return OWNER_CHECK_TRIGGERPASS;
+
+		if( !pPlayer->GetGroup() )
+			return OWNER_CHECK_NO_GROUP;
+
+		if( pInstance->m_difficulty == 1 && pPlayer->iInstanceType == MODE_NORMAL )
+			return OWNER_CHECK_DIFFICULT;
+
+		if( pInstance->m_mapMgr && pInstance->m_mapInfo->playerlimit < pInstance->m_mapMgr->m_PlayerStorage.size() )
+			return OWNER_CHECK_MAX_LIMIT;
+
+		if( pInstance->m_mapMgr && pPlayer->getLevel() < pInstance->m_mapInfo->minlevel )
+			return OWNER_CHECK_MIN_LEVEL;
+	
+		// Active raid?
+		if( pInstance->m_mapMgr && pInstance->m_mapMgr->HasPlayers() )
 		{
-			OwnsInstance = OWNER_CHECK_DIFFICULT;
-		}
-		else if( pInstance->m_mapMgr && pInstance->m_mapInfo->playerlimit < pInstance->m_mapMgr->m_PlayerStorage.size() )
-		{
-				OwnsInstance = OWNER_CHECK_MAX_LIMIT;
-		}
-		else if( pInstance->m_mapMgr && pPlayer->getLevel() < pInstance->m_mapInfo->minlevel )
-		{
-				OwnsInstance = OWNER_CHECK_MIN_LEVEL;
-		}
-		else if( pInstance->m_mapMgr && pInstance->m_mapMgr->HasPlayers() )
-		{
-			if( GetFirstPlayer(pInstance)->GetGroup() && GetFirstPlayer(pInstance)->GetGroup()== pPlayer->GetGroup())
-				OwnsInstance = OWNER_CHECK_GROUP_OK;
-			else if (GetFirstPlayer(pInstance)->GetSession()->HasGMPermissions())
-				OwnsInstance = OWNER_CHECK_GM_INSIDE;
-		}
-		else if( ( pInstance->m_mapInfo->type == INSTANCE_RAID || ( pPlayer->iInstanceType >= MODE_HEROIC && pInstance->m_mapInfo->type == INSTANCE_MULTIMODE ) ) && HasActiveInstance( pInstance , pPlayer->GetLowGUID( ) ) )
-		{
-			OwnsInstance = OWNER_CHECK_SAVED_OK;
+			//this is the original group that created the instance
+			if( pPlayer->GetGroup()->GetID() == pInstance->m_creatorGroup )
+				return OWNER_CHECK_GROUP_OK;
 		}
 
-		return OwnsInstance;
+		if( pInstance->m_mapInfo->type == INSTANCE_RAID || ( pPlayer->iInstanceType >= MODE_HEROIC && pInstance->m_mapInfo->type == INSTANCE_MULTIMODE ))
+		{
+			// Are we (or our group leader) saved already?
+			if( pInstance->m_SavedPlayers.find(pPlayer->GetLowGUID()) != pInstance->m_SavedPlayers.end() ||
+				pInstance->m_SavedPlayers.find(pPlayer->GetGroup()->GetLeader()->guid) != pInstance->m_SavedPlayers.end())
+			{
+				//if this is not the original group that created the instance
+				if( pInstance->m_mapMgr )
+				{
+					//we changed group, instance is empty, grab it!
+					if(!pInstance->m_mapMgr->HasPlayers())
+					{
+						if( pInstance->m_creatorGroup != pPlayer->GetGroup()->GetID())
+							pInstance->m_creatorGroup = pPlayer->GetGroup()->GetID();
+					}
+					//too bad, another group has formed in your saved inside already
+					else if(pPlayer->GetGroup()->GetID() != pInstance->m_creatorGroup)
+						return OWNER_CHECK_ERROR;
+				}
+				pInstance->m_creatorGroup = pPlayer->GetGroup()->GetID();
+				return OWNER_CHECK_SAVED_OK;
+			}
+		}
+		return OWNER_CHECK_ERROR;
 	}
 
 	// has an instance expired?
@@ -232,7 +244,6 @@ public:
 	{
 		return m_instances[map_id];
 	}
-	PlayerPointer GetFirstPlayer(Instance * pInstance);
 
 private:
 	void _LoadInstances();
@@ -240,7 +251,6 @@ private:
 	MapMgrPointer _CreateInstance(Instance * in);
 	MapMgrPointer _CreateInstance(uint32 mapid, uint32 instanceid);		// only used on main maps!
 	bool _DeleteInstance(Instance * in, bool ForcePlayersOut);
-	bool HasActiveInstance(Instance * pInstance, uint32 guid);
 
 	uint32 m_InstanceHigh;
 

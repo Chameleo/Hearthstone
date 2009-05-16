@@ -937,6 +937,9 @@ void Object::AddToWorld()
 			if( !mapMgr->m_battleground->CanPlayerJoin(p) && !p->bGMTagOn)
 				return;
 		}
+		// players who's group disbanded cannot remain in a raid instances alone(no soloing them:P)
+		if( p->GetGroup()== NULL && (mapMgr->GetMapInfo()->type == INSTANCE_RAID || mapMgr->GetMapInfo()->type == INSTANCE_MULTIMODE))
+			return ;
 	}
 
 	m_mapMgr = mapMgr;

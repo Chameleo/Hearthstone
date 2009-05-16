@@ -109,10 +109,7 @@ public:
 	HEARTHSTONE_INLINE GameObjectPointer GetGameObject(uint32 guid)
 	{
 		GameObjectMap::iterator itr = m_gameObjectStorage.find(guid);
-		if( itr == m_gameObjectStorage.end() )
-			return NULLGOB;
-
-		return itr->second;
+		return (itr != m_gameObjectStorage.end()) ? m_gameObjectStorage[guid] : NULLGOB;
 	}
 
 /////////////////////////////////////////////////////////
@@ -125,12 +122,8 @@ public:
 
 	__inline VehiclePointer GetVehicle(uint32 guid)
 	{
-		if(guid > m_VehicleHighGuid)
-			return NULLVEHICLE;
-
-		return m_VehicleStorage[guid];
+		return guid <= m_VehicleHighGuid ? m_VehicleStorage[guid] : NULLVEHICLE;
 	}
-
 /////////////////////////////////////////////////////////
 // Local (mapmgr) storage/generation of Creatures
 /////////////////////////////////////////////
@@ -141,35 +134,31 @@ public:
 
 	__inline CreaturePointer GetCreature(uint32 guid)
 	{
-		if(guid > m_CreatureHighGuid)
-			return NULLCREATURE;
-
-		return m_CreatureStorage[guid];
+		return guid <= m_CreatureHighGuid ? m_CreatureStorage[guid] : NULLCREATURE;
 	}
-
 //////////////////////////////////////////////////////////
 // Local (mapmgr) storage/generation of DynamicObjects
 ////////////////////////////////////////////
 	uint32 m_DynamicObjectHighGuid;
-	typedef HM_NAMESPACE::hash_map<uint32, DynamicObjectPointer > DynamicObjectStorageMap;
+	typedef HM_NAMESPACE::hash_map<uint32, DynamicObjectPointer> DynamicObjectStorageMap;
 	DynamicObjectStorageMap m_DynamicObjectStorage;
 	DynamicObjectPointer CreateDynamicObject();
 	
 	HEARTHSTONE_INLINE DynamicObjectPointer GetDynamicObject(uint32 guid)
 	{
 		DynamicObjectStorageMap::iterator itr = m_DynamicObjectStorage.find(guid);
-		return (itr != m_DynamicObjectStorage.end()) ? itr->second : NULLDYN;
+		return (itr != m_DynamicObjectStorage.end()) ? m_DynamicObjectStorage[guid] : NULLDYN;
 	}
 
 //////////////////////////////////////////////////////////
 // Local (mapmgr) storage of pets
 ///////////////////////////////////////////
-	typedef HM_NAMESPACE::hash_map<uint32, PetPointer > PetStorageMap;
+	typedef HM_NAMESPACE::hash_map<uint32, PetPointer> PetStorageMap;
 	PetStorageMap m_PetStorage;
 	__inline PetPointer GetPet(uint32 guid)
 	{
 		PetStorageMap::iterator itr = m_PetStorage.find(guid);
-		return (itr != m_PetStorage.end()) ? itr->second : NULLPET;
+		return (itr != m_PetStorage.end()) ? m_PetStorage[guid] : NULLPET;
 	}
 
 //////////////////////////////////////////////////////////
@@ -177,17 +166,13 @@ public:
 ////////////////////////////////
     
     // double typedef lolz// a compile breaker..
-	typedef HM_NAMESPACE::hash_map<uint32, PlayerPointer  >                     PlayerStorageMap;
+	typedef HM_NAMESPACE::hash_map<uint32, PlayerPointer> PlayerStorageMap;
 
 	PlayerStorageMap m_PlayerStorage;
 	__inline PlayerPointer GetPlayer(uint32 guid)
 	{
 		PlayerStorageMap::iterator itr = m_PlayerStorage.find(guid);
-		if (itr != m_PlayerStorage.end())
-		{
-			return m_PlayerStorage[guid];
-		}
-		return NULLPLR;
+		return (itr != m_PlayerStorage.end()) ? m_PlayerStorage[guid] : NULLPLR;
 	}
 
 //////////////////////////////////////////////////////////
@@ -201,6 +186,16 @@ public:
 	void RemoveCombatInProgress(uint64 guid)
 	{
 		_combatProgress.erase(guid);
+	}
+	HEARTHSTONE_INLINE bool IsCombatInProgress()
+	{ 
+		//temporary disabled until AI updates list correctly.
+		return false;
+
+		//if all players are out, list should be empty.
+		if(!HasPlayers())
+			_combatProgress.clear();
+		return (_combatProgress.size() > 0);
 	}
 
 //////////////////////////////////////////////////////////
@@ -243,7 +238,6 @@ public:
 	void PushToProcessed(PlayerPointer plr);
 
 	HEARTHSTONE_INLINE bool HasPlayers() { return (m_PlayerStorage.size() > 0); }
-	HEARTHSTONE_INLINE bool IsCombatInProgress() { return (_combatProgress.size() > 0); }
 	void TeleportPlayers();
 
 	HEARTHSTONE_INLINE uint32 GetInstanceID() { return m_instanceID; }
